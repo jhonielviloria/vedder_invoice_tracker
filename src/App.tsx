@@ -9,7 +9,7 @@ const tabs = [
 ];
 
 const App: React.FC = () => {
-  const [active, setActive] = useState<string>('clients');
+  const [active, setActive] = useState<string>('invoices');
   return (
     <AppProvider>
       <div className="min-h-screen flex flex-col">

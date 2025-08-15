@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../context';
 import { Client, InvoiceCellData, FREQUENCIES, InvoicingFrequency } from '../types';
 import { InvoiceCell } from './InvoiceCell';
@@ -30,12 +30,33 @@ function applicable(client: Client, monthIndex: number, year: number): boolean {
   }
 }
 
+const PREF_KEY = 'invoice_grid_prefs_v1';
+
+function loadPrefs(): { year: number; frequency: InvoicingFrequency } {
+  try {
+    const raw = localStorage.getItem(PREF_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.year === 'number' && parsed.frequency) {
+        return parsed;
+      }
+    }
+  } catch { /* ignore */ }
+  return { year: new Date().getFullYear(), frequency: 'Monthly' };
+}
+
 export const InvoiceGrid: React.FC = () => {
   const { data, updateInvoiceStatus, updateInvoiceNotes } = useApp();
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [frequencyFilter, setFrequencyFilter] = useState<InvoicingFrequency>('Monthly');
+  const initial = useMemo(loadPrefs, []);
+  const [year, setYear] = useState<number>(initial.year);
+  const [frequencyFilter, setFrequencyFilter] = useState<InvoicingFrequency>(initial.frequency);
   const months = useMemo(()=> monthsOfYear(year), [year]);
   const [focused, setFocused] = useState<FocusedCell | null>(null);
+
+  // Persist preferences when they change
+  useEffect(()=> {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ year, frequency: frequencyFilter })); } catch { /* ignore */ }
+  }, [year, frequencyFilter]);
 
   function getCell(clientId: string, y: number, m: number) {
     const key = `${clientId}:${y}-${String(m+1).padStart(2,'0')}`;
@@ -69,9 +90,13 @@ export const InvoiceGrid: React.FC = () => {
         <tbody>
           {filteredClients.map(client => (
             <tr key={client.id} className="odd:bg-gray-50/40">
-              <td className="border px-2 py-1 align-top min-w-[180px]">
-                <div className="font-medium text-sm">{client.name}</div>
-                <div className="text-[10px] text-gray-500">{client.frequency}</div>
+              <td className="border px-2 py-1 align-top min-w-[220px]">
+                <div className="font-medium text-sm leading-snug">{client.name}</div>
+                {client.instructions ? (
+                  <div className="mt-0.5 text-[10px] text-gray-600 line-clamp-2 whitespace-pre-wrap" title={client.instructions}>{client.instructions}</div>
+                ) : (
+                  <div className="text-[10px] text-gray-500">{client.frequency}</div>
+                )}
               </td>
               {months.map(m => {
                 const isApplicable = applicable(client, m.month, m.year);
