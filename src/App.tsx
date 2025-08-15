@@ -1,6 +1,20 @@
 import React from 'react';
 import { AppProvider } from './context';
 import { InvoiceGrid } from './components/InvoiceGrid';
+import { useApp } from './context';
+
+const Toasts: React.FC = () => {
+  const { toasts } = useApp();
+  return (
+    <div className="fixed top-4 right-4 z-50 space-y-2">
+      {toasts.map(t => (
+        <div key={t.id} className="bg-green-600 text-white text-sm px-3 py-2 rounded shadow animate-fade-in">
+          {t.message}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const App: React.FC = () => (
   <AppProvider>
@@ -15,6 +29,7 @@ const App: React.FC = () => (
         </section>
       </main>
       <footer className="mt-auto text-center py-4 text-xs text-gray-500">Data stored locally in your browser.</footer>
+  <Toasts />
     </div>
   </AppProvider>
 );
