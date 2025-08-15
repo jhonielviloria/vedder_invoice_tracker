@@ -63,10 +63,17 @@ export const InvoiceGrid: React.FC = () => {
     return data.invoices[key];
   }
 
-  const filteredClients = data.clients.filter(c => c.frequency === frequencyFilter);
+  const filteredClients = useMemo(
+    () => data.clients
+      .filter(c => c.frequency === frequencyFilter)
+      .slice()
+      .sort((a,b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [data.clients, frequencyFilter]
+  );
 
   return (
-    <div className="overflow-auto border rounded bg-white">
+    <div className="border rounded bg-white">
+      {/* Controls (not part of scrollable area) */}
       <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between p-3 border-b bg-gray-50">
         <div className="flex items-center gap-2">
           <button aria-label="Previous Year" className="px-2 py-1 border rounded" onClick={()=> setYear(y => y - 1)}>&laquo; {year-1}</button>
@@ -80,17 +87,18 @@ export const InvoiceGrid: React.FC = () => {
           </select>
         </div>
       </div>
+      <div className="overflow-auto">
       <table className="min-w-full border-collapse">
         <thead className="sticky top-0 bg-gray-50 z-10">
           <tr>
-            <th className="border px-2 py-1 text-left bg-gray-100">Client</th>
+            <th className="border px-2 py-1 text-left bg-gray-100 sticky left-0 z-30 shadow-sm">Client</th>
             {months.map(m => <th key={m.year+'-'+m.month} className="border px-1 py-1 text-xs font-medium text-center w-24">{m.label}</th>)}
           </tr>
         </thead>
         <tbody>
           {filteredClients.map(client => (
             <tr key={client.id} className="odd:bg-gray-50/40">
-              <td className="border px-2 py-1 align-top min-w-[220px]">
+              <td className="border px-2 py-1 align-top min-w-[220px] bg-white sticky left-0 z-20 shadow-sm">
                 <div className="font-medium text-sm leading-snug">{client.name}</div>
                 {client.instructions ? (
                   <div className="mt-0.5 text-[10px] text-gray-600 line-clamp-2 whitespace-pre-wrap" title={client.instructions}>{client.instructions}</div>
@@ -120,6 +128,7 @@ export const InvoiceGrid: React.FC = () => {
           )}
         </tbody>
       </table>
+  </div>
       <NotesModal
         open={!!focused}
         initial={focused?.existing?.notes || ''}
