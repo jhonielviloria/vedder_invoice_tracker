@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context';
-import { Client, InvoiceCellData } from '../types';
+import { Client, InvoiceCellData, FREQUENCIES, InvoicingFrequency } from '../types';
 import { InvoiceCell } from './InvoiceCell';
 import { NotesModal } from './NotesModal';
 
@@ -11,15 +11,13 @@ interface FocusedCell {
   existing?: InvoiceCellData;
 }
 
-function monthsRange(center: Date, pastMonths: number, futureMonths: number) {
-  const out: { year: number; month: number; label: string; }[] = [];
-  const cYear = center.getFullYear();
-  const cMonth = center.getMonth();
-  for (let offset = -pastMonths; offset <= futureMonths; offset++) {
-    const date = new Date(cYear, cMonth + offset, 1);
-    out.push({ year: date.getFullYear(), month: date.getMonth(), label: date.toLocaleString('default', { month: 'short' }) + ' ' + date.getFullYear() });
-  }
-  return out;
+function monthsOfYear(year: number) {
+  return Array.from({ length: 12 }, (_, m) => ({
+    year,
+    month: m,
+  // Header should display only month abbreviation (e.g., Jan, Feb...)
+  label: new Date(year, m, 1).toLocaleString('default', { month: 'short' })
+  }));
 }
 
 function applicable(client: Client, monthIndex: number, year: number): boolean {
@@ -34,8 +32,9 @@ function applicable(client: Client, monthIndex: number, year: number): boolean {
 
 export const InvoiceGrid: React.FC = () => {
   const { data, updateInvoiceStatus, updateInvoiceNotes } = useApp();
-  const [center] = useState(new Date());
-  const months = useMemo(()=> monthsRange(center, 3, 9), [center]);
+  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [frequencyFilter, setFrequencyFilter] = useState<InvoicingFrequency>('Monthly');
+  const months = useMemo(()=> monthsOfYear(year), [year]);
   const [focused, setFocused] = useState<FocusedCell | null>(null);
 
   function getCell(clientId: string, y: number, m: number) {
@@ -43,8 +42,23 @@ export const InvoiceGrid: React.FC = () => {
     return data.invoices[key];
   }
 
+  const filteredClients = data.clients.filter(c => c.frequency === frequencyFilter);
+
   return (
     <div className="overflow-auto border rounded bg-white">
+      <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between p-3 border-b bg-gray-50">
+        <div className="flex items-center gap-2">
+          <button aria-label="Previous Year" className="px-2 py-1 border rounded" onClick={()=> setYear(y => y - 1)}>&laquo; {year-1}</button>
+          <div className="font-semibold text-sm">{year}</div>
+          <button aria-label="Next Year" className="px-2 py-1 border rounded" onClick={()=> setYear(y => y + 1)}>{year+1} &raquo;</button>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium" htmlFor="freqFilter">Frequency</label>
+          <select id="freqFilter" className="border rounded px-2 py-1 text-sm" value={frequencyFilter} onChange={e=> setFrequencyFilter(e.target.value as InvoicingFrequency)}>
+            {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+      </div>
       <table className="min-w-full border-collapse">
         <thead className="sticky top-0 bg-gray-50 z-10">
           <tr>
@@ -53,7 +67,7 @@ export const InvoiceGrid: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {data.clients.map(client => (
+          {filteredClients.map(client => (
             <tr key={client.id} className="odd:bg-gray-50/40">
               <td className="border px-2 py-1 align-top min-w-[180px]">
                 <div className="font-medium text-sm">{client.name}</div>
@@ -76,8 +90,8 @@ export const InvoiceGrid: React.FC = () => {
               })}
             </tr>
           ))}
-          {data.clients.length === 0 && (
-            <tr><td colSpan={months.length + 1} className="p-6 text-center text-sm text-gray-500">Add clients to begin tracking invoices.</td></tr>
+          {filteredClients.length === 0 && (
+            <tr><td colSpan={months.length + 1} className="p-6 text-center text-sm text-gray-500">No clients with frequency "{frequencyFilter}".</td></tr>
           )}
         </tbody>
       </table>
