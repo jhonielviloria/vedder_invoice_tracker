@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../context';
 import { Client, InvoiceCellData, FREQUENCIES, InvoicingFrequency } from '../types';
+import { ClientModal } from './ClientModal';
+import { ClientForm } from './ClientForm';
 import { InvoiceCell } from './InvoiceCell';
 import { NotesModal } from './NotesModal';
 
@@ -46,12 +48,14 @@ function loadPrefs(): { year: number; frequency: InvoicingFrequency } {
 }
 
 export const InvoiceGrid: React.FC = () => {
-  const { data, updateInvoiceStatus, updateInvoiceNotes } = useApp();
+  const { data, updateInvoiceStatus, updateInvoiceNotes, updateClient, removeClient, addClient } = useApp();
   const initial = useMemo(loadPrefs, []);
   const [year, setYear] = useState<number>(initial.year);
   const [frequencyFilter, setFrequencyFilter] = useState<InvoicingFrequency>(initial.frequency);
   const months = useMemo(()=> monthsOfYear(year), [year]);
   const [focused, setFocused] = useState<FocusedCell | null>(null);
+  const [clientModal, setClientModal] = useState<Client | null>(null);
+  const [adding, setAdding] = useState(false);
 
   // Persist preferences when they change
   useEffect(()=> {
@@ -63,11 +67,11 @@ export const InvoiceGrid: React.FC = () => {
     return data.invoices[key];
   }
 
-  const filteredClients = useMemo(
+  const filteredClients: Client[] = useMemo(
     () => data.clients
-      .filter(c => c.frequency === frequencyFilter)
+      .filter((c: Client) => c.frequency === frequencyFilter)
       .slice()
-      .sort((a,b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+      .sort((a: Client,b: Client) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [data.clients, frequencyFilter]
   );
 
@@ -87,7 +91,7 @@ export const InvoiceGrid: React.FC = () => {
           </select>
         </div>
       </div>
-      <div className="overflow-auto">
+  <div className="overflow-auto">
       <table className="min-w-full border-collapse">
         <thead className="sticky top-0 bg-gray-50 z-10">
           <tr>
@@ -98,8 +102,8 @@ export const InvoiceGrid: React.FC = () => {
         <tbody>
           {filteredClients.map(client => (
             <tr key={client.id} className="odd:bg-gray-50/40">
-              <td className="border px-2 py-1 align-top min-w-[220px] bg-white sticky left-0 z-20 shadow-sm">
-                <div className="font-medium text-sm leading-snug">{client.name}</div>
+              <td className="border px-2 py-1 align-top min-w-[220px] bg-white sticky left-0 z-20 shadow-sm cursor-pointer hover:bg-blue-50" onClick={()=> setClientModal(client)}>
+                <div className="font-medium text-sm leading-snug underline decoration-dotted underline-offset-2">{client.name}</div>
                 {client.instructions ? (
                   <div className="mt-0.5 text-[10px] text-gray-600 line-clamp-2 whitespace-pre-wrap" title={client.instructions}>{client.instructions}</div>
                 ) : (
@@ -129,11 +133,35 @@ export const InvoiceGrid: React.FC = () => {
         </tbody>
       </table>
   </div>
+      <div className="p-3 border-t bg-gray-50 flex justify-end">
+        <button onClick={()=> setAdding(true)} className="px-4 py-2 rounded bg-green-600 text-white text-sm font-medium">Add New Client</button>
+      </div>
       <NotesModal
         open={!!focused}
         initial={focused?.existing?.notes || ''}
         onClose={()=> setFocused(null)}
         onSave={(notes) => { if (focused) { updateInvoiceNotes(focused.clientId, focused.year, focused.month, notes); } }}
+      />
+      {adding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded shadow-lg w-full max-w-lg p-5 space-y-4">
+            <div className="flex items-start justify-between">
+              <h3 className="font-semibold text-lg">Add Client</h3>
+              <button onClick={()=> setAdding(false)} aria-label="Close" className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <ClientForm
+              onCancel={()=> setAdding(false)}
+              onSubmit={(c) => { addClient(c); setAdding(false); }}
+            />
+          </div>
+        </div>
+      )}
+      <ClientModal
+        open={!!clientModal}
+        client={clientModal}
+        onClose={()=> setClientModal(null)}
+        onUpdate={(c)=> updateClient(c)}
+        onDelete={(id)=> removeClient(id)}
       />
     </div>
   );
