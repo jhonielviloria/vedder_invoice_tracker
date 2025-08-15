@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useApp } from '../context';
 import { Client, InvoiceCellData, FREQUENCIES, InvoicingFrequency } from '../types';
 import { ClientModal } from './ClientModal';
@@ -56,6 +56,8 @@ export const InvoiceGrid: React.FC = () => {
   const [focused, setFocused] = useState<FocusedCell | null>(null);
   const [clientModal, setClientModal] = useState<Client | null>(null);
   const [adding, setAdding] = useState(false);
+  const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   // Persist preferences when they change
   useEffect(()=> {
@@ -74,6 +76,15 @@ export const InvoiceGrid: React.FC = () => {
       .sort((a: Client,b: Client) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [data.clients, frequencyFilter]
   );
+
+  // Scroll to newly added client
+  useEffect(() => {
+    if (newlyAddedId && rowRefs.current[newlyAddedId]) {
+      rowRefs.current[newlyAddedId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const timeout = setTimeout(()=> setNewlyAddedId(null), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [newlyAddedId, filteredClients]);
 
   return (
     <div className="border rounded bg-white">
@@ -101,7 +112,7 @@ export const InvoiceGrid: React.FC = () => {
         </thead>
         <tbody>
           {filteredClients.map(client => (
-            <tr key={client.id} className="odd:bg-gray-50/40">
+            <tr key={client.id} ref={el => rowRefs.current[client.id] = el} className={"odd:bg-gray-50/40 transition " + (client.id === newlyAddedId ? 'ring-2 ring-green-400 ring-offset-1' : '')}>
               <td className="border px-2 py-1 align-top min-w-[220px] bg-white sticky left-0 z-20 shadow-sm cursor-pointer hover:bg-blue-50" onClick={()=> setClientModal(client)}>
                 <div className="font-medium text-sm leading-snug underline decoration-dotted underline-offset-2">{client.name}</div>
                 {client.instructions ? (
@@ -151,7 +162,15 @@ export const InvoiceGrid: React.FC = () => {
             </div>
             <ClientForm
               onCancel={()=> setAdding(false)}
-              onSubmit={(c) => { addClient(c); setAdding(false); }}
+              onSubmit={(c) => {
+                const id = addClient(c);
+                setFrequencyFilter(c.frequency);
+                // Delay setting newlyAddedId until state flush ensures client appears in filtered list
+                requestAnimationFrame(() => {
+                  setNewlyAddedId(id);
+                });
+                setAdding(false);
+              }}
             />
           </div>
         </div>

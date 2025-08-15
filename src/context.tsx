@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid';
 
 interface AppContextValue {
   data: AppDataSchema;
-  addClient: (partial: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addClient: (partial: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => string; // returns new id
   updateClient: (client: Client) => void;
   removeClient: (id: string) => void;
   updateInvoiceStatus: (clientId: string, year: number, month: number, status: InvoiceStatus) => void;
@@ -32,17 +32,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addClient = useCallback((partial: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
     const client: Client = { ...partial, id: uuid(), createdAt: '', updatedAt: '' };
-    setData(d => ({ ...upsertClient({ ...d }, client) }));
+  setData(d => upsertClient(d, client));
     showToast('Client added');
-  }, []);
+    return client.id;
+  }, [showToast]);
 
   const updateClient = useCallback((client: Client) => {
-    setData(d => ({ ...upsertClient({ ...d }, client) }));
+  setData(d => upsertClient(d, client));
     showToast('Client updated');
   }, [showToast]);
 
   const removeClient = useCallback((id: string) => {
-    setData(d => ({ ...deleteClient({ ...d }, id) }));
+  setData(d => deleteClient(d, id));
     showToast('Client deleted');
   }, [showToast]);
 
@@ -55,7 +56,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setData(d => {
       const cell = ensureCell(d, clientId, year, month);
       const next: InvoiceCellData = { ...cell, status };
-      return { ...upsertInvoiceCell({ ...d }, next) };
+  return upsertInvoiceCell(d, next);
     });
     showToast('Status updated');
   }, []);
@@ -64,7 +65,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setData(d => {
       const cell = ensureCell(d, clientId, year, month);
       const next: InvoiceCellData = { ...cell, notes };
-      return { ...upsertInvoiceCell({ ...d }, next) };
+  return upsertInvoiceCell(d, next);
     });
     showToast('Notes saved');
   }, []);

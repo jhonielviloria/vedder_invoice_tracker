@@ -29,29 +29,37 @@ export function saveData(data: AppDataSchema) {
 }
 
 export function upsertClient(data: AppDataSchema, client: Client): AppDataSchema {
-  const existing = data.clients.find(c => c.id === client.id);
   const now = new Date().toISOString();
-  if (existing) {
-    Object.assign(existing, client, { updatedAt: now });
+  const idx = data.clients.findIndex(c => c.id === client.id);
+  let nextClients: Client[];
+  if (idx >= 0) {
+    nextClients = data.clients.map(c => c.id === client.id ? { ...c, ...client, updatedAt: now } : c);
   } else {
-    data.clients.push({ ...client, createdAt: now, updatedAt: now });
+    nextClients = [...data.clients, { ...client, createdAt: now, updatedAt: now }];
   }
-  saveData(data);
-  return data;
+  const next: AppDataSchema = { ...data, clients: nextClients };
+  saveData(next);
+  return next;
 }
 
 export function deleteClient(data: AppDataSchema, clientId: string): AppDataSchema {
-  data.clients = data.clients.filter(c => c.id !== clientId);
-  // Remove invoices for client
-  Object.keys(data.invoices).forEach(key => {
-    if (key.startsWith(clientId + ':')) delete data.invoices[key];
-  });
-  saveData(data);
-  return data;
+  const prunedInvoices: Record<string, InvoiceCellData> = {};
+  for (const [key, val] of Object.entries(data.invoices)) {
+    if (!key.startsWith(clientId + ':')) prunedInvoices[key] = val;
+  }
+  const next: AppDataSchema = { ...data, clients: data.clients.filter(c => c.id !== clientId), invoices: prunedInvoices };
+  saveData(next);
+  return next;
 }
 
 export function upsertInvoiceCell(data: AppDataSchema, cell: InvoiceCellData): AppDataSchema {
-  data.invoices[cell.id] = { ...cell, updatedAt: new Date().toISOString() };
-  saveData(data);
-  return data;
+  const next: AppDataSchema = {
+    ...data,
+    invoices: {
+      ...data.invoices,
+      [cell.id]: { ...cell, updatedAt: new Date().toISOString() }
+    }
+  };
+  saveData(next);
+  return next;
 }
