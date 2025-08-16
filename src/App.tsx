@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './auth';
 import { isSupabaseConfigured } from './supabaseClient';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
+import './debug'; // Import debug functions
 
 const Toasts: React.FC = () => {
   const { toasts } = useApp();
